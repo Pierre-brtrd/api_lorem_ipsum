@@ -1,0 +1,25 @@
+# Configuration pour l'environnement de développement
+
+[server]
+host = "127.0.0.1"
+port = 3000
+
+[logging]
+level = "debug"
+format = "pretty"
+
+[cors]
+allowed_origins = ["http://localhost:3000", "http://127.0.0.1:3000"]
+allowed_methods = ["GET", "POST", "OPTIONS"]
+allowed_headers = ["Content-Type", "Authorization"]
+
+[rate_limiting]
+requests_per_minute = 100
+burst_size = 10
+
+[lorem]
+default_count = 5
+default_unit = "paragraphs"
+default_format = "plain"
+max_count = 1000
+min_count = 1

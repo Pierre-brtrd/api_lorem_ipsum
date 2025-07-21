@@ -1,6 +1,3 @@
-// Module pour les tests unitaires des Value Objects du domaine
-
 pub mod test_generation_unit;
 pub mod test_text_format_unit;
-// TODO: Ajouter les autres Value Objects
-// pub mod test_text_length;
+pub mod test_text_length;

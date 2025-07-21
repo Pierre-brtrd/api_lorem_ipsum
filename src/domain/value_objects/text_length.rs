@@ -1,7 +1,7 @@
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Serialize, Serializer};
 use validator::Validate;
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Validate)]
+#[derive(Debug, Clone, PartialEq, Eq, Validate)]
 pub struct TextLength {
     #[validate(range(
         min = 1,
@@ -32,6 +32,16 @@ impl TextLength {
 
     pub fn value(&self) -> u32 {
         self.value
+    }
+}
+
+// Sérialisation personnalisée pour sérialiser comme un simple nombre
+impl Serialize for TextLength {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        serializer.serialize_u32(self.value)
     }
 }
 

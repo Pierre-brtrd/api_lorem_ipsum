@@ -55,7 +55,7 @@ lors d'un événement en ligne ou hors-ligne.
 ## Application
 
 Les cas de comportement abusif, harcelant ou autrement inacceptable peuvent être signalés aux
-dirigeants de la communauté responsables de l'application à [pierre.bertrnd@example.com].
+dirigeants de la communauté responsables de l'application à [pierre.bertrand.professionnel@gmail.com].
 Toutes les plaintes seront examinées et enquêtées rapidement et équitablement.
 
 Tous les dirigeants de la communauté sont tenus de respecter la vie privée et la sécurité du

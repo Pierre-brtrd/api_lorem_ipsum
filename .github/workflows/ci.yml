@@ -24,7 +24,7 @@ jobs:
                   components: rustfmt, clippy
 
             - name: 📦 Cache dependencies
-              uses: actions/cache@v3
+              uses: actions/cache@v4
               with:
                   path: |
                       ~/.cargo/registry
@@ -65,7 +65,7 @@ jobs:
               uses: dtolnay/rust-toolchain@stable
 
             - name: 📦 Cache dependencies
-              uses: actions/cache@v3
+              uses: actions/cache@v4
               with:
                   path: |
                       ~/.cargo/registry
@@ -97,7 +97,7 @@ jobs:
               uses: dtolnay/rust-toolchain@stable
 
             - name: 📦 Cache dependencies
-              uses: actions/cache@v3
+              uses: actions/cache@v4
               with:
                   path: |
                       ~/.cargo/registry
@@ -126,7 +126,7 @@ jobs:
               uses: dtolnay/rust-toolchain@stable
 
             - name: 📦 Cache dependencies
-              uses: actions/cache@v3
+              uses: actions/cache@v4
               with:
                   path: |
                       ~/.cargo/registry
@@ -147,7 +147,7 @@ jobs:
                     --lcov --output-path lcov.info
 
             - name: 📤 Upload to Codecov
-              uses: codecov/codecov-action@v4
+              uses: codecov/codecov-action@v5
               with:
                   files: lcov.info
                   fail_ci_if_error: false

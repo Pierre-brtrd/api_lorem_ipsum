@@ -20,7 +20,7 @@ serde_json = "1.0"
 
 # Validation et Erreurs
 validator = { version = "0.18", features = ["derive"] }
-thiserror = "1.0"
+thiserror = "2.0"
 anyhow = "1.0"
 
 # Configuration et Logging

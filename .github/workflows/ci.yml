@@ -1,0 +1,93 @@
+name: 🦀 CI/CD Pipeline
+
+on:
+    push:
+        branches: [master, developement]
+    pull_request:
+        branches: [master]
+
+env:
+    CARGO_TERM_COLOR: always
+
+jobs:
+    test:
+        name: 🧪 Tests
+        runs-on: ubuntu-latest
+
+        steps:
+            - name: 📥 Checkout code
+              uses: actions/checkout@v4
+
+            - name: 🦀 Setup Rust
+              uses: actions-rs/toolchain@v1
+              with:
+                  toolchain: stable
+                  override: true
+                  components: rustfmt, clippy
+
+            - name: 📦 Cache dependencies
+              uses: actions/cache@v3
+              with:
+                  path: |
+                      ~/.cargo/registry
+                      ~/.cargo/git
+                      target
+                  key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+                  restore-keys: |
+                      ${{ runner.os }}-cargo-
+
+            - name: 🔍 Check formatting
+              run: cargo fmt --all -- --check
+
+            - name: 📋 Run Clippy
+              run: cargo clippy --all-targets --all-features -- -D warnings
+
+            - name: 🏗️ Build
+              run: cargo build --verbose
+
+            - name: 🧪 Run tests
+              run: cargo test --verbose
+
+    security:
+        name: 🔒 Security Audit
+        runs-on: ubuntu-latest
+
+        steps:
+            - name: 📥 Checkout code
+              uses: actions/checkout@v4
+
+            - name: 🦀 Setup Rust
+              uses: actions-rs/toolchain@v1
+              with:
+                  toolchain: stable
+                  override: true
+
+            - name: 🔒 Security audit
+              uses: actions-rs/audit@v1
+
+    coverage:
+        name: 📊 Code Coverage
+        runs-on: ubuntu-latest
+        if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+
+        steps:
+            - name: 📥 Checkout code
+              uses: actions/checkout@v4
+
+            - name: 🦀 Setup Rust
+              uses: actions-rs/toolchain@v1
+              with:
+                  toolchain: stable
+                  override: true
+
+            - name: 📦 Install cargo-tarpaulin
+              run: cargo install cargo-tarpaulin
+
+            - name: 📊 Generate coverage
+              run: cargo tarpaulin --verbose --all-features --workspace --timeout 120 --out Xml
+
+            - name: 📤 Upload coverage
+              uses: codecov/codecov-action@v3
+              with:
+                  file: cobertura.xml
+                  fail_ci_if_error: true

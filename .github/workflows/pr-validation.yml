@@ -1,0 +1,217 @@
+name: 🔍 PR Validation
+
+on:
+    pull_request:
+        branches: [master]
+        types: [opened, synchronize, reopened, ready_for_review]
+
+env:
+    CARGO_TERM_COLOR: always
+
+jobs:
+    validate-pr:
+        name: 🔍 Validate Pull Request
+        runs-on: ubuntu-latest
+        if: github.event.pull_request.draft == false
+
+        steps:
+            - name: 📥 Checkout PR
+              uses: actions/checkout@v4
+              with:
+                  fetch-depth: 0
+
+            - name: 🦀 Setup Rust
+              uses: actions-rs/toolchain@v1
+              with:
+                  toolchain: stable
+                  override: true
+                  components: rustfmt, clippy
+
+            - name: 📦 Cache dependencies
+              uses: actions/cache@v3
+              with:
+                  path: |
+                      ~/.cargo/registry
+                      ~/.cargo/git
+                      target
+                  key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+
+            - name: 🔍 Check formatting
+              run: cargo fmt --all -- --check
+
+            - name: 📋 Run Clippy
+              run: cargo clippy --all-targets --all-features -- -D warnings
+
+            - name: 🏗️ Build
+              run: cargo build --verbose
+
+            - name: 🧪 Run tests
+              run: cargo test --verbose
+
+    validate-changelog:
+        name: 📋 Validate Changelog
+        runs-on: ubuntu-latest
+        if: github.event.pull_request.draft == false
+
+        steps:
+            - name: 📥 Checkout PR
+              uses: actions/checkout@v4
+              with:
+                  fetch-depth: 0
+
+            - name: 📋 Check if CHANGELOG updated
+              id: changelog-check
+              run: |
+                  # Vérifier si des fichiers source ont été modifiés
+                  SOURCE_CHANGED=$(git diff --name-only origin/master...HEAD | grep -E '\.(rs|toml)$' | wc -l)
+
+                  # Vérifier si le CHANGELOG a été modifié
+                  CHANGELOG_CHANGED=$(git diff --name-only origin/master...HEAD | grep 'CHANGELOG.md' | wc -l)
+
+                  echo "source-changed=$SOURCE_CHANGED" >> $GITHUB_OUTPUT
+                  echo "changelog-changed=$CHANGELOG_CHANGED" >> $GITHUB_OUTPUT
+
+                  if [ "$SOURCE_CHANGED" -gt 0 ] && [ "$CHANGELOG_CHANGED" -eq 0 ]; then
+                    echo "needs-changelog=true" >> $GITHUB_OUTPUT
+                  else
+                    echo "needs-changelog=false" >> $GITHUB_OUTPUT
+                  fi
+
+            - name: 📋 Validate CHANGELOG format
+              if: steps.changelog-check.outputs.changelog-changed > 0
+              run: |
+                  # Vérifier que le CHANGELOG suit le bon format
+                  if ! grep -q "## \[Non publié\]" CHANGELOG.md; then
+                    echo "❌ Le CHANGELOG doit contenir une section [Non publié]"
+                    exit 1
+                  fi
+
+                  # Vérifier qu'il y a du contenu dans la section Non publié
+                  UNRELEASED_CONTENT=$(awk '/^## \[Non publié\]/,/^## \[/ {print}' CHANGELOG.md | grep -E '^- ' | wc -l)
+                  if [ "$UNRELEASED_CONTENT" -eq 0 ]; then
+                    echo "⚠️ La section [Non publié] du CHANGELOG semble vide"
+                    echo "Ajoutez vos changements dans cette section"
+                  fi
+
+            - name: 💬 Comment on PR if CHANGELOG needed
+              if: steps.changelog-check.outputs.needs-changelog == 'true'
+              uses: actions/github-script@v7
+              with:
+                  script: |
+                      github.rest.issues.createComment({
+                        issue_number: context.issue.number,
+                        owner: context.repo.owner,
+                        repo: context.repo.repo,
+                        body: `## 📋 CHANGELOG manquant
+                        
+                        Votre PR modifie du code source mais ne met pas à jour le CHANGELOG.md.
+                        
+                        Merci d'ajouter vos changements dans la section **[Non publié]** du CHANGELOG.md :
+                        
+                        \`\`\`markdown
+                        ## [Non publié]
+                        
+                        ### ✨ Ajouté
+                        - Votre nouvelle fonctionnalité
+                        
+                        ### 🔄 Modifié
+                        - Vos modifications
+                        
+                        ### 🐛 Corrigé
+                        - Vos corrections
+                        \`\`\`
+                        
+                        Cela permet de maintenir un historique des changements à jour pour les releases automatiques. 🚀`
+                      })
+
+    pr-size-check:
+        name: 📏 Check PR Size
+        runs-on: ubuntu-latest
+        if: github.event.pull_request.draft == false
+
+        steps:
+            - name: 📥 Checkout PR
+              uses: actions/checkout@v4
+              with:
+                  fetch-depth: 0
+
+            - name: 📏 Calculate PR size
+              id: pr-size
+              run: |
+                  ADDITIONS=$(git diff --shortstat origin/master...HEAD | awk '{print $4}' | sed 's/[^0-9]*//g')
+                  DELETIONS=$(git diff --shortstat origin/master...HEAD | awk '{print $6}' | sed 's/[^0-9]*//g')
+
+                  # Valeurs par défaut si vides
+                  ADDITIONS=${ADDITIONS:-0}
+                  DELETIONS=${DELETIONS:-0}
+
+                  TOTAL_CHANGES=$((ADDITIONS + DELETIONS))
+
+                  echo "additions=$ADDITIONS" >> $GITHUB_OUTPUT
+                  echo "deletions=$DELETIONS" >> $GITHUB_OUTPUT
+                  echo "total=$TOTAL_CHANGES" >> $GITHUB_OUTPUT
+
+                  if [ $TOTAL_CHANGES -gt 500 ]; then
+                    echo "size=large" >> $GITHUB_OUTPUT
+                  elif [ $TOTAL_CHANGES -gt 200 ]; then
+                    echo "size=medium" >> $GITHUB_OUTPUT
+                  else
+                    echo "size=small" >> $GITHUB_OUTPUT
+                  fi
+
+            - name: 🏷️ Label PR by size
+              uses: actions/github-script@v7
+              with:
+                  script: |
+                      const size = '${{ steps.pr-size.outputs.size }}';
+                      const total = '${{ steps.pr-size.outputs.total }}';
+
+                      // Supprimer les anciens labels de taille
+                      const { data: labels } = await github.rest.issues.listLabelsOnIssue({
+                        issue_number: context.issue.number,
+                        owner: context.repo.owner,
+                        repo: context.repo.repo,
+                      });
+
+                      const sizeLabels = labels.filter(label => 
+                        label.name.startsWith('size/')
+                      ).map(label => label.name);
+
+                      if (sizeLabels.length > 0) {
+                        await github.rest.issues.removeLabel({
+                          issue_number: context.issue.number,
+                          owner: context.repo.owner,
+                          repo: context.repo.repo,
+                          name: sizeLabels[0]
+                        });
+                      }
+
+                      // Ajouter le nouveau label
+                      await github.rest.issues.addLabels({
+                        issue_number: context.issue.number,
+                        owner: context.repo.owner,
+                        repo: context.repo.repo,
+                        labels: [`size/${size}`]
+                      });
+
+                      // Commenter si la PR est très grande
+                      if (size === 'large') {
+                        await github.rest.issues.createComment({
+                          issue_number: context.issue.number,
+                          owner: context.repo.owner,
+                          repo: context.repo.repo,
+                          body: `## 📏 Grande Pull Request détectée
+                          
+                          Cette PR contient **${total} changements** (ajouts + suppressions).
+                          
+                          Les grandes PRs sont plus difficiles à réviser et plus susceptibles d'introduire des bugs.
+                          
+                          ### 💡 Suggestions
+                          - Considérez diviser cette PR en plusieurs plus petites
+                          - Assurez-vous que tous les changements sont liés
+                          - Ajoutez des tests complets
+                          - Documentez les changements importants
+                          
+                          Si cette taille est justifiée, ignorez ce message. 👍`
+                        });
+                      }

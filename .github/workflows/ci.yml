@@ -116,7 +116,7 @@ jobs:
     coverage:
         name: 📊 Code Coverage
         runs-on: ubuntu-latest
-        if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+        # if: github.event_name == 'push' && github.ref == 'refs/heads/master'
 
         steps:
             - name: 📥 Checkout code

@@ -19,10 +19,8 @@ jobs:
               uses: actions/checkout@v4
 
             - name: 🦀 Setup Rust
-              uses: actions-rs/toolchain@v1
+              uses: dtolnay/rust-toolchain@stable
               with:
-                  toolchain: stable
-                  override: true
                   components: rustfmt, clippy
 
             - name: 📦 Cache dependencies
@@ -46,7 +44,46 @@ jobs:
               run: cargo build --verbose
 
             - name: 🧪 Run tests
-              run: cargo test --verbose
+              run: |
+                  # Tests unitaires
+                  cargo test --lib --verbose
+                  # Tests d'intégration  
+                  cargo test --test '*' --verbose
+                  # Tests de documentation
+                  cargo test --doc --verbose
+
+    integration:
+        name: 🔗 Integration Tests
+        runs-on: ubuntu-latest
+        if: github.event_name == 'push' || github.event_name == 'pull_request'
+
+        steps:
+            - name: 📥 Checkout code
+              uses: actions/checkout@v4
+
+            - name: 🦀 Setup Rust
+              uses: dtolnay/rust-toolchain@stable
+
+            - name: 📦 Cache dependencies
+              uses: actions/cache@v3
+              with:
+                  path: |
+                      ~/.cargo/registry
+                      ~/.cargo/git
+                      target
+                  key: ${{ runner.os }}-cargo-integration-${{ hashFiles('**/Cargo.lock') }}
+                  restore-keys: |
+                      ${{ runner.os }}-cargo-integration-
+
+            - name: 🏗️ Build for integration tests
+              run: cargo build --release
+
+            - name: 🔗 Run integration tests
+              run: |
+                  # Tests fonctionnels avec données réelles
+                  cargo test --release --test integration -- --test-threads=1
+                  # Tests de performance basiques
+                  cargo test --release --test performance -- --ignored
 
     security:
         name: 🔒 Security Audit
@@ -57,13 +94,24 @@ jobs:
               uses: actions/checkout@v4
 
             - name: 🦀 Setup Rust
-              uses: actions-rs/toolchain@v1
+              uses: dtolnay/rust-toolchain@stable
+
+            - name: 📦 Cache dependencies
+              uses: actions/cache@v3
               with:
-                  toolchain: stable
-                  override: true
+                  path: |
+                      ~/.cargo/registry
+                      ~/.cargo/git
+                      target
+                  key: ${{ runner.os }}-cargo-audit-${{ hashFiles('**/Cargo.lock') }}
+                  restore-keys: |
+                      ${{ runner.os }}-cargo-audit-
+
+            - name: 🔒 Install cargo-audit
+              run: cargo install --locked cargo-audit
 
             - name: 🔒 Security audit
-              uses: actions-rs/audit@v1
+              run: cargo audit
 
     coverage:
         name: 📊 Code Coverage
@@ -75,20 +123,34 @@ jobs:
               uses: actions/checkout@v4
 
             - name: 🦀 Setup Rust
-              uses: actions-rs/toolchain@v1
+              uses: dtolnay/rust-toolchain@stable
+
+            - name: 📦 Cache dependencies
+              uses: actions/cache@v3
               with:
-                  toolchain: stable
-                  override: true
+                  path: |
+                      ~/.cargo/registry
+                      ~/.cargo/git
+                      target
+                  key: ${{ runner.os }}-cargo-coverage-${{ hashFiles('**/Cargo.lock') }}
+                  restore-keys: |
+                      ${{ runner.os }}-cargo-coverage-
 
-            - name: 📦 Install cargo-tarpaulin
-              run: cargo install cargo-tarpaulin
+            - name: 📦 Install cargo-llvm-cov
+              uses: taiki-e/install-action@cargo-llvm-cov
 
-            - name: 📊 Generate coverage
-              run: cargo tarpaulin --verbose --all-features --workspace --timeout 120 --out Xml
+            - name: 📊 Generate coverage report
+              run: |
+                  # Tests unitaires ET fonctionnels avec coverage optimisée
+                  cargo llvm-cov --all-features --workspace \
+                    --ignore-filename-regex "(tests?/|benches?/)" \
+                    --lcov --output-path lcov.info
 
-            - name: 📤 Upload coverage
-              uses: codecov/codecov-action@v3
+            - name: 📤 Upload to Codecov
+              uses: codecov/codecov-action@v4
               with:
-                  token: ${{ secrets.CODECOV_TOKEN }}
-                  file: cobertura.xml
-                  fail_ci_if_error: true
+                  files: lcov.info
+                  fail_ci_if_error: false
+                  verbose: true
+              env:
+                  CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}

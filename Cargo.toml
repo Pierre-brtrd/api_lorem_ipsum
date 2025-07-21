@@ -24,7 +24,7 @@ thiserror = "1.0"
 anyhow = "1.0"
 
 # Configuration et Logging
-config = "0.14"
+config = "0.15"
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 

@@ -1,0 +1,39 @@
+[package]
+name = "api_lorem_ipsum"
+version = "0.1.0"
+edition = "2021"
+authors = ["Pierre <pierre.bertrnd@example.com>"]
+description = "API Lorem Ipsum en Rust suivant les principes DDD"
+license = "MIT"
+repository = "https://github.com/Pierre-brtrd/api_lorem_ipsum"
+
+[dependencies]
+# Web Framework
+axum = "0.7"
+tokio = { version = "1.0", features = ["full"] }
+tower = "0.4"
+tower-http = { version = "0.5", features = ["cors", "trace", "timeout"] }
+
+# Sérialisation
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+
+# Validation et Erreurs
+validator = { version = "0.18", features = ["derive"] }
+thiserror = "1.0"
+anyhow = "1.0"
+
+# Configuration et Logging
+config = "0.14"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+
+# Utilitaires
+uuid = { version = "1.0", features = ["v4", "serde"] }
+rand = "0.8"
+once_cell = "1.19"
+
+[dev-dependencies]
+mockall = "0.12"
+rstest = "0.18"
+tokio-test = "0.4"

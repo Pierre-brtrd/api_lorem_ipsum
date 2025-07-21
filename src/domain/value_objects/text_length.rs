@@ -1,3 +1,4 @@
+use crate::domain::errors::{DomainError, DomainResult};
 use serde::{Deserialize, Serialize, Serializer};
 use validator::Validate;
 
@@ -12,22 +13,15 @@ pub struct TextLength {
 }
 
 impl TextLength {
-    pub fn new(value: u32) -> Result<Self, String> {
-        let text_length = Self { value };
-
-        match text_length.validate() {
-            Ok(_) => Ok(text_length),
-            Err(errors) => {
-                let message = errors
-                    .field_errors()
-                    .get("value")
-                    .and_then(|errs| errs.first())
-                    .and_then(|err| err.message.as_ref())
-                    .map(|msg| msg.to_string())
-                    .unwrap_or_else(|| "Longueur de texte invalide".to_string());
-                Err(message)
-            }
+    pub fn new(value: u32) -> DomainResult<Self> {
+        if value == 0 {
+            return Err(DomainError::invalid_text_length(value, 1, 1000));
         }
+        if value > 1000 {
+            return Err(DomainError::invalid_text_length(value, 1, 1000));
+        }
+
+        Ok(Self { value })
     }
 
     pub fn value(&self) -> u32 {
@@ -51,6 +45,6 @@ impl<'de> Deserialize<'de> for TextLength {
         D: serde::Deserializer<'de>,
     {
         let value = u32::deserialize(deserializer)?;
-        TextLength::new(value).map_err(serde::de::Error::custom)
+        TextLength::new(value).map_err(|e| serde::de::Error::custom(e.to_string()))
     }
 }

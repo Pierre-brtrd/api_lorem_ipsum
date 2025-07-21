@@ -1,4 +1,5 @@
-use api_lorem_ipsum::domain::value_objects::html_tags::{HtmlTag, HtmlTags};
+use api_lorem_ipsum::domain::errors::DomainError;
+use api_lorem_ipsum::domain::value_objects::{HtmlTag, HtmlTags};
 
 #[cfg(test)]
 mod html_tags_tests {
@@ -20,10 +21,8 @@ mod html_tags_tests {
         let result = HtmlTags::new(vec![]);
 
         assert!(result.is_err());
-        assert_eq!(
-            result.unwrap_err(),
-            "La liste des balises HTML ne peut pas être vide"
-        );
+        let error = result.unwrap_err();
+        assert!(matches!(error, DomainError::EmptyHtmlTags));
     }
 
     #[test]
@@ -77,10 +76,8 @@ mod html_tags_tests {
         let result = HtmlTags::from_url_parts(&[]);
 
         assert!(result.is_err());
-        assert_eq!(
-            result.unwrap_err(),
-            "Aucune balise HTML spécifiée dans l'URL"
-        );
+        let error = result.unwrap_err();
+        assert!(matches!(error, DomainError::MissingHtmlTags));
     }
 
     #[test]
@@ -89,9 +86,11 @@ mod html_tags_tests {
         let result = HtmlTags::from_url_parts(&parts);
 
         assert!(result.is_err());
-        assert!(result
-            .unwrap_err()
-            .contains("Tag HTML non reconnu: 'invalid_tag'"));
+        let error = result.unwrap_err();
+        assert!(matches!(
+            error,
+            DomainError::InvalidHtmlTag { tag } if tag == "invalid_tag"
+        ));
     }
 
     // Tests des accesseurs
@@ -168,7 +167,12 @@ mod html_tags_tests {
 
         let result = html_tags.validate_compatibility();
         assert!(result.is_err());
-        assert!(result.unwrap_err().contains("ne sont pas compatibles"));
+        let error = result.unwrap_err();
+        assert!(matches!(
+            error,
+            DomainError::IncompatibleHtmlTags { tag1, tag2 }
+            if (tag1 == "ul" && tag2 == "ol") || (tag1 == "ol" && tag2 == "ul")
+        ));
     }
 
     // Tests de comptage d'éléments
@@ -415,7 +419,11 @@ mod html_tag_tests {
         for name in invalid_names {
             let result = HtmlTag::from_url_name(name);
             assert!(result.is_err(), "Should reject invalid name: '{name}'");
-            assert!(result.unwrap_err().contains("Tag HTML non reconnu"));
+            let error = result.unwrap_err();
+            assert!(matches!(
+                error,
+                DomainError::InvalidHtmlTag { tag } if tag == name
+            ));
         }
     }
 

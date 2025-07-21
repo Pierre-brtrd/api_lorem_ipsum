@@ -1,4 +1,5 @@
 use api_lorem_ipsum::domain::entities::{CacheStrategy, GenerationRequest};
+use api_lorem_ipsum::domain::errors::DomainError;
 use api_lorem_ipsum::domain::value_objects::{
     GenerationUnit, HtmlComplexity, HtmlTags, TextFormat, TextLengthCategory,
 };
@@ -92,9 +93,11 @@ mod generation_request_validation_tests {
         );
 
         assert!(result.is_err());
-        assert!(result
-            .unwrap_err()
-            .contains("Le nombre d'éléments ne peut pas être zéro"));
+        let error = result.unwrap_err();
+        assert!(matches!(
+            error,
+            api_lorem_ipsum::domain::errors::DomainError::InvalidElementCount { count: 0, .. }
+        ));
     }
 
     #[test]
@@ -108,9 +111,11 @@ mod generation_request_validation_tests {
         );
 
         assert!(result.is_err());
-        assert!(result
-            .unwrap_err()
-            .contains("Le nombre d'éléments ne peut pas dépasser 1000"));
+        let error = result.unwrap_err();
+        assert!(matches!(
+            error,
+            api_lorem_ipsum::domain::errors::DomainError::InvalidElementCount { count: 1001, .. }
+        ));
     }
 
     #[test]
@@ -118,7 +123,7 @@ mod generation_request_validation_tests {
         // Créer un test spécial pour Words - le problème est que la validation
         // des paragraphes se fait avant celle des HTML tags avec Words
 
-        // D'abord, testons la limite de paragraphes moyens (observé dans l'erreur)
+        // D'abord, testons la limite de paragraphes moyens
         let result_paragraphs = GenerationRequest::new(
             51, // Dépasse le max de 50 pour Medium
             TextLengthCategory::Medium,
@@ -129,7 +134,10 @@ mod generation_request_validation_tests {
 
         assert!(result_paragraphs.is_err());
         let error_msg = result_paragraphs.unwrap_err();
-        assert!(error_msg.contains("Trop de paragraphes moyens demandés (max 50 pour 'medium')"));
+        assert!(matches!(
+            error_msg,
+            DomainError::ExcessiveCount { count: 51, max: 50, category, .. } if category == "medium"
+        ));
 
         // Ensuite, testons Words avec HTML tags avec un nombre valide de paragraphes
         let result_words_html = GenerationRequest::new(
@@ -142,18 +150,15 @@ mod generation_request_validation_tests {
 
         assert!(result_words_html.is_err());
         let error_msg2 = result_words_html.unwrap_err();
-        println!("Words+HTML error: '{error_msg2}'");
-        assert!(
-            error_msg2.contains(
-                "Les tags HTML ne sont pas compatibles avec la génération de mots individuels"
-            ) || error_msg2.contains("mots")
-                || error_msg2.contains("HTML")
-        );
+        assert!(matches!(
+            error_msg2,
+            DomainError::IncompatibleUnitWithHtml { unit } if unit == "mots"
+        ));
     }
 
     #[test]
     fn test_validation_excessive_sentences_fails() {
-        // Pour sentences, on peut utiliser des HTML tags
+        // Pour sentences, la validation se fait via les paragraphes
         let result = GenerationRequest::new(
             501,
             TextLengthCategory::Medium,
@@ -164,11 +169,11 @@ mod generation_request_validation_tests {
 
         assert!(result.is_err());
         let error_msg = result.unwrap_err();
-        // Vérifier que l'erreur concerne bien les phrases
-        assert!(
-            error_msg.contains("Trop de phrases demandées (max 500)")
-                || error_msg.contains("paragraphes") // Peut être une erreur de validation différente
-        );
+        // L'erreur sera ExcessiveCount pour les paragraphes, pas TooManySentences
+        assert!(matches!(
+            error_msg,
+            DomainError::ExcessiveCount { count: 501, max: 50, category, .. } if category == "medium"
+        ));
     }
 
     #[test]
@@ -187,11 +192,10 @@ mod generation_request_validation_tests {
         let error_msg = result.unwrap_err();
         println!("HTML+Words error: '{error_msg}'");
         // L'erreur réelle qu'on reçoit
-        assert!(
-            error_msg.contains("paragraphes")
-                || error_msg.contains("mots")
-                || error_msg.contains("HTML")
-        );
+        assert!(matches!(
+            error_msg,
+            DomainError::IncompatibleUnitWithHtml { unit } if unit == "mots"
+        ));
     }
 
     #[test]

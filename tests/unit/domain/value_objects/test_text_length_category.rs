@@ -1,3 +1,4 @@
+use api_lorem_ipsum::domain::errors::DomainError;
 use api_lorem_ipsum::domain::value_objects::text_length_category::{
     HtmlComplexity, TextLengthCategory,
 };
@@ -66,9 +67,11 @@ mod text_length_category_tests {
         for name in invalid_names {
             let result = TextLengthCategory::from_url_name(name);
             assert!(result.is_err(), "Should reject invalid name: '{name}'");
-            assert!(result
-                .unwrap_err()
-                .contains("Catégorie de longueur non reconnue"));
+            let error = result.unwrap_err();
+            assert!(matches!(
+                error,
+                DomainError::UnknownLengthCategory { category } if category == name
+            ));
         }
     }
 

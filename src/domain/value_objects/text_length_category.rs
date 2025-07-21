@@ -1,3 +1,4 @@
+use crate::domain::errors::{DomainError, DomainResult};
 use serde::{Deserialize, Serialize};
 use std::ops::RangeInclusive;
 
@@ -11,12 +12,12 @@ pub enum TextLengthCategory {
 
 impl TextLengthCategory {
     /// Parse une catégorie depuis le nom d'URL (case insensitive)
-    pub fn from_url_name(name: &str) -> Result<Self, String> {
+    pub fn from_url_name(name: &str) -> DomainResult<Self> {
         match name.to_lowercase().as_str() {
             "short" | "court" | "s" => Ok(Self::Short),
             "medium" | "moyen" | "m" => Ok(Self::Medium),
             "long" | "l" => Ok(Self::Long),
-            _ => Err(format!("Catégorie de longueur non reconnue: '{name}'")),
+            _ => Err(DomainError::unknown_category(name)),
         }
     }
 
@@ -129,22 +130,31 @@ impl TextLengthCategory {
     }
 
     /// Valide que la catégorie peut générer le nombre de paragraphes demandé
-    pub fn validate_paragraph_count(&self, paragraph_count: u32) -> Result<(), String> {
+    pub fn validate_paragraph_count(&self, paragraph_count: u32) -> DomainResult<()> {
         if paragraph_count == 0 {
-            return Err("Le nombre de paragraphes ne peut pas être zéro".to_string());
+            return Err(DomainError::invalid_count(paragraph_count, 1, u32::MAX));
         }
 
         // Validation métier: éviter les combinaisons non-sens
         match (self, paragraph_count) {
-            (Self::Long, count) if count > 20 => {
-                Err("Trop de paragraphes longs demandés (max 20 pour 'long')".to_string())
-            }
-            (Self::Medium, count) if count > 50 => {
-                Err("Trop de paragraphes moyens demandés (max 50 pour 'medium')".to_string())
-            }
-            (Self::Short, count) if count > 100 => {
-                Err("Trop de paragraphes courts demandés (max 100 pour 'short')".to_string())
-            }
+            (Self::Long, count) if count > 20 => Err(DomainError::ExcessiveCount {
+                unit: "paragraphes".to_string(),
+                count,
+                max: 20,
+                category: "long".to_string(),
+            }),
+            (Self::Medium, count) if count > 50 => Err(DomainError::ExcessiveCount {
+                unit: "paragraphes".to_string(),
+                count,
+                max: 50,
+                category: "medium".to_string(),
+            }),
+            (Self::Short, count) if count > 100 => Err(DomainError::ExcessiveCount {
+                unit: "paragraphes".to_string(),
+                count,
+                max: 100,
+                category: "short".to_string(),
+            }),
             _ => Ok(()),
         }
     }

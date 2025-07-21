@@ -1,3 +1,4 @@
+use api_lorem_ipsum::domain::errors::DomainError;
 use api_lorem_ipsum::domain::value_objects::generation_unit::GenerationUnit;
 use serde_json;
 
@@ -132,8 +133,10 @@ mod generation_unit_tests {
         assert!(result.is_err());
 
         let error_message = result.unwrap_err();
-        assert!(error_message.contains("Invalid generation unit"));
-        assert!(error_message.contains("invalid"));
+        assert!(matches!(
+            error_message,
+            DomainError::UnknownGenerationUnit { unit } if unit == "invalid"
+        ));
     }
 
     // Tests de sérialisation JSON (Serde)

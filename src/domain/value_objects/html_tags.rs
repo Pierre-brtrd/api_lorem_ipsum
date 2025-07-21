@@ -1,6 +1,6 @@
-use std::fmt;
-
+use crate::domain::errors::{DomainError, DomainResult};
 use serde::{Deserialize, Serialize, Serializer};
+use std::fmt;
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct HtmlTags {
@@ -8,9 +8,9 @@ pub struct HtmlTags {
 }
 
 impl HtmlTags {
-    pub fn new(tags: Vec<HtmlTag>) -> Result<Self, String> {
+    pub fn new(tags: Vec<HtmlTag>) -> DomainResult<Self> {
         if tags.is_empty() {
-            return Err("La liste des balises HTML ne peut pas être vide".to_string());
+            return Err(DomainError::EmptyHtmlTags);
         }
 
         let mut unique_tags = tags;
@@ -20,9 +20,9 @@ impl HtmlTags {
         Ok(Self { tags: unique_tags })
     }
 
-    pub fn from_url_parts(parts: &[&str]) -> Result<Self, String> {
+    pub fn from_url_parts(parts: &[&str]) -> DomainResult<Self> {
         if parts.is_empty() {
-            return Err("Aucune balise HTML spécifiée dans l'URL".to_string());
+            return Err(DomainError::MissingHtmlTags);
         }
 
         let mut tags = Vec::new();
@@ -34,7 +34,7 @@ impl HtmlTags {
         Self::new(tags)
     }
 
-    pub fn single(tag: HtmlTag) -> Result<Self, String> {
+    pub fn single(tag: HtmlTag) -> DomainResult<Self> {
         Self::new(vec![tag])
     }
 
@@ -54,21 +54,20 @@ impl HtmlTags {
         self.tags.len()
     }
 
-    pub fn combine(&self, other: &Self) -> Result<Self, String> {
+    pub fn combine(&self, other: &Self) -> DomainResult<Self> {
         let mut combined = self.tags.clone();
         combined.extend(other.tags.iter().cloned());
         Self::new(combined)
     }
 
-    pub fn validate_compatibility(&self) -> Result<(), String> {
+    pub fn validate_compatibility(&self) -> DomainResult<()> {
         for tag in &self.tags {
             for other_tag in &self.tags {
                 if tag != other_tag && !tag.is_compatible_with(other_tag) {
-                    return Err(format!(
-                        "Les balises {} et {} ne sont pas compatibles",
-                        tag.to_url_name(),
-                        other_tag.to_url_name()
-                    ));
+                    return Err(DomainError::IncompatibleHtmlTags {
+                        tag1: tag.to_url_name().to_string(),
+                        tag2: other_tag.to_url_name().to_string(),
+                    });
                 }
             }
         }
@@ -107,14 +106,12 @@ impl fmt::Display for HtmlTags {
 
 impl From<HtmlTag> for HtmlTags {
     fn from(tag: HtmlTag) -> Self {
-        // Un seul tag est toujours valide, donc on peut utiliser le constructeur direct
-        // mais restons cohérent avec notre pattern de validation
         Self::single(tag).expect("Un seul tag HTML devrait toujours être valide")
     }
 }
 
 impl TryFrom<Vec<&str>> for HtmlTags {
-    type Error = String;
+    type Error = DomainError;
 
     fn try_from(parts: Vec<&str>) -> Result<Self, Self::Error> {
         Self::from_url_parts(&parts)
@@ -161,7 +158,7 @@ pub enum HtmlTag {
 }
 
 impl HtmlTag {
-    pub fn from_url_name(name: &str) -> Result<Self, String> {
+    pub fn from_url_name(name: &str) -> DomainResult<Self> {
         match name.to_lowercase().as_str() {
             "headers" | "header" => Ok(Self::Header),
             "link" | "links" => Ok(Self::Link),
@@ -172,7 +169,7 @@ impl HtmlTag {
             "code" => Ok(Self::Code),
             "blockquote" | "quote" => Ok(Self::Blockquote),
             "div" => Ok(Self::Div),
-            _ => Err(format!("Tag HTML non reconnu: '{name}'")),
+            _ => Err(DomainError::invalid_html_tag(name)),
         }
     }
 

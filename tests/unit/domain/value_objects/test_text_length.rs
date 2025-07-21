@@ -1,3 +1,4 @@
+use api_lorem_ipsum::domain::errors::DomainError;
 use api_lorem_ipsum::domain::value_objects::text_length::TextLength;
 use serde_json;
 
@@ -33,8 +34,14 @@ mod text_length_tests {
         assert!(result.is_err());
 
         let error = result.unwrap_err();
-        assert!(error.contains("longueur"));
-        assert!(error.contains("1"));
+        assert!(matches!(
+            error,
+            DomainError::InvalidTextLength {
+                value: 0,
+                min: 1,
+                max: 1000
+            }
+        ));
     }
 
     #[test]
@@ -43,8 +50,14 @@ mod text_length_tests {
         assert!(result.is_err());
 
         let error = result.unwrap_err();
-        assert!(error.contains("longueur"));
-        assert!(error.contains("1000"));
+        assert!(matches!(
+            error,
+            DomainError::InvalidTextLength {
+                value: 1001,
+                min: 1,
+                max: 1000
+            }
+        ));
     }
 
     #[test]
@@ -66,13 +79,14 @@ mod text_length_tests {
         assert!(result.is_err());
 
         let error_message = result.unwrap_err();
+        let error_string = error_message.to_string();
         assert!(
-            error_message.len() > 10,
-            "Error message should be descriptive, got: '{error_message}'",
+            error_string.len() > 10,
+            "Error message should be descriptive, got: '{error_string}'",
         );
 
         // Should contain French message
-        assert!(error_message.to_lowercase().contains("longueur"));
+        assert!(error_string.to_lowercase().contains("longueur"));
     }
 
     // Tests d'égalité et traits dérivés

@@ -1,6 +1,6 @@
-use std::str::FromStr;
-
+use crate::domain::errors::DomainError;
 use serde::{Deserialize, Serialize};
+use std::str::FromStr;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
@@ -29,14 +29,14 @@ impl GenerationUnit {
 }
 
 impl FromStr for GenerationUnit {
-    type Err = String;
+    type Err = DomainError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s.to_lowercase().as_str() {
             "words" => Ok(Self::Words),
             "sentences" => Ok(Self::Sentences),
             "paragraphs" => Ok(Self::Paragraphs),
-            _ => Err(format!("Invalid generation unit: {s}")),
+            _ => Err(DomainError::unknown_unit(s)),
         }
     }
 }

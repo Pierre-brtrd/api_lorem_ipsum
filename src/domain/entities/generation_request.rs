@@ -1,3 +1,4 @@
+use crate::domain::errors::{DomainError, DomainResult};
 use crate::domain::value_objects::{
     GenerationUnit, HtmlComplexity, HtmlTags, TextFormat, TextLengthCategory,
 };
@@ -64,7 +65,7 @@ impl GenerationRequest {
         html_tags: HtmlTags,
         format: TextFormat,
         unit: GenerationUnit,
-    ) -> Result<Self, String> {
+    ) -> DomainResult<Self> {
         Self::with_cache_config(count, length_category, html_tags, format, unit, true, None)
     }
 
@@ -77,7 +78,7 @@ impl GenerationRequest {
         unit: GenerationUnit,
         cache_enabled: bool,
         custom_seed: Option<u64>,
-    ) -> Result<Self, String> {
+    ) -> DomainResult<Self> {
         // Validation des règles métier
         Self::validate_business_rules(count, &length_category, &html_tags, &unit)?;
 
@@ -101,7 +102,7 @@ impl GenerationRequest {
         format: TextFormat,
         unit: GenerationUnit,
         seed: u64,
-    ) -> Result<Self, String> {
+    ) -> DomainResult<Self> {
         Self::with_cache_config(
             count,
             length_category,
@@ -114,17 +115,19 @@ impl GenerationRequest {
     }
 
     /// Parse depuis une URL comme `/api/10/long/headers/link`
-    pub fn from_url_path(path: &str) -> Result<Self, String> {
+    pub fn from_url_path(path: &str) -> DomainResult<Self> {
         let parts: Vec<&str> = path.trim_start_matches("/api/").split('/').collect();
 
         if parts.len() < 2 {
-            return Err("URL invalide: format attendu /api/count/length/[tags...]".to_string());
+            return Err(DomainError::malformed_url(path));
         }
 
         // Parse count
         let count = parts[0]
             .parse::<u32>()
-            .map_err(|_| format!("Nombre invalide: '{}'", parts[0]))?;
+            .map_err(|_| DomainError::InvalidUrlNumber {
+                value: parts[0].to_string(),
+            })?;
 
         // Parse length category
         let length_category = TextLengthCategory::from_url_name(parts[1])?;
@@ -133,7 +136,7 @@ impl GenerationRequest {
         let html_tags = if parts.len() > 2 {
             HtmlTags::from_url_parts(&parts[2..])?
         } else {
-            return Err("Au moins un tag HTML doit être spécifié".to_string());
+            return Err(DomainError::MissingHtmlTags);
         };
 
         // Par défaut: HTML et Paragraphs
@@ -150,7 +153,7 @@ impl GenerationRequest {
     pub fn from_url_with_cache(
         path: &str,
         query_params: &HashMap<String, String>,
-    ) -> Result<Self, String> {
+    ) -> DomainResult<Self> {
         let mut request = Self::from_url_path(path)?;
 
         // Configuration du cache depuis query params
@@ -360,14 +363,14 @@ impl GenerationRequest {
         length_category: &TextLengthCategory,
         html_tags: &HtmlTags,
         unit: &GenerationUnit,
-    ) -> Result<(), String> {
+    ) -> DomainResult<()> {
         // Validation du count
         if count == 0 {
-            return Err("Le nombre d'éléments ne peut pas être zéro".to_string());
+            return Err(DomainError::invalid_count(count, 1, 1000));
         }
 
         if count > 1000 {
-            return Err("Le nombre d'éléments ne peut pas dépasser 1000".to_string());
+            return Err(DomainError::invalid_count(count, 1, 1000));
         }
 
         // Validation de la compatibilité length_category + count
@@ -380,12 +383,12 @@ impl GenerationRequest {
         match unit {
             GenerationUnit::Words => {
                 if count > 10000 {
-                    return Err("Trop de mots demandés (max 10000)".to_string());
+                    return Err(DomainError::TooManyWords { count, max: 10000 });
                 }
             }
             GenerationUnit::Sentences => {
                 if count > 500 {
-                    return Err("Trop de phrases demandées (max 500)".to_string());
+                    return Err(DomainError::TooManySentences { count, max: 500 });
                 }
             }
             GenerationUnit::Paragraphs => {
@@ -395,10 +398,9 @@ impl GenerationRequest {
 
         // Validation de la compatibilité HTML tags + unité
         if matches!(unit, GenerationUnit::Words) && !html_tags.is_empty() {
-            return Err(
-                "Les tags HTML ne sont pas compatibles avec la génération de mots individuels"
-                    .to_string(),
-            );
+            return Err(DomainError::IncompatibleUnitWithHtml {
+                unit: "mots".to_string(),
+            });
         }
 
         Ok(())

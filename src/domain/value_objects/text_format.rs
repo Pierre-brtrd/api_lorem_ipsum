@@ -1,6 +1,6 @@
-use std::str::FromStr;
-
+use crate::domain::errors::DomainError;
 use serde::{Deserialize, Serialize};
+use std::str::FromStr;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
@@ -29,14 +29,14 @@ impl TextFormat {
 }
 
 impl FromStr for TextFormat {
-    type Err = String;
+    type Err = DomainError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s.to_lowercase().as_str() {
             "plain_text" => Ok(Self::PlainText),
             "markdown" => Ok(Self::Markdown),
             "html" => Ok(Self::HTML),
-            _ => Err(format!("Format de texte invalide : {s}")),
+            _ => Err(DomainError::unknown_format(s)),
         }
     }
 }

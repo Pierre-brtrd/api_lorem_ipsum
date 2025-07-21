@@ -1,0 +1,285 @@
+name: 🚀 Auto Release
+
+on:
+    push:
+        branches: [master]
+        paths: ["CHANGELOG.md", "Cargo.toml"]
+
+env:
+    CARGO_TERM_COLOR: always
+
+jobs:
+    check-version:
+        name: 🔍 Check Version Changes
+        runs-on: ubuntu-latest
+        outputs:
+            version: ${{ steps.version.outputs.version }}
+            version-changed: ${{ steps.version.outputs.changed }}
+            release-notes: ${{ steps.changelog.outputs.notes }}
+
+        steps:
+            - name: 📥 Checkout code
+              uses: actions/checkout@v4
+              with:
+                  fetch-depth: 2
+
+            - name: 🔍 Extract version from Cargo.toml
+              id: version
+              run: |
+                  VERSION=$(grep '^version = ' Cargo.toml | sed 's/version = "\(.*\)"/\1/')
+                  echo "version=$VERSION" >> $GITHUB_OUTPUT
+
+                  # Vérifier si la version a changé
+                  git show HEAD~1:Cargo.toml > previous_cargo.toml || echo 'version = "0.0.0"' > previous_cargo.toml
+                  PREVIOUS_VERSION=$(grep '^version = ' previous_cargo.toml | sed 's/version = "\(.*\)"/\1/' || echo "0.0.0")
+
+                  if [ "$VERSION" != "$PREVIOUS_VERSION" ]; then
+                    echo "changed=true" >> $GITHUB_OUTPUT
+                    echo "Version changed from $PREVIOUS_VERSION to $VERSION"
+                  else
+                    echo "changed=false" >> $GITHUB_OUTPUT
+                    echo "Version unchanged: $VERSION"
+                  fi
+
+            - name: 📋 Extract changelog for version
+              id: changelog
+              if: steps.version.outputs.changed == 'true'
+              run: |
+                  VERSION="${{ steps.version.outputs.version }}"
+
+                  # Script pour extraire les notes de la version du CHANGELOG
+                  cat << 'EOF' > extract_changelog.py
+                  import re
+                  import sys
+
+                  def extract_version_notes(changelog_path, version):
+                      with open(changelog_path, 'r', encoding='utf-8') as f:
+                          content = f.read()
+                      
+                      # Pattern pour trouver la section de version
+                      version_pattern = rf'## \[{re.escape(version)}\].*?(?=## \[|\Z)'
+                      match = re.search(version_pattern, content, re.DOTALL)
+                      
+                      if match:
+                          section = match.group(0)
+                          # Nettoyer et formater les notes
+                          lines = section.split('\n')[1:]  # Enlever la ligne de titre
+                          notes = []
+                          for line in lines:
+                              line = line.strip()
+                              if line and not line.startswith('## ['):
+                                  notes.append(line)
+                          
+                          return '\n'.join(notes).strip()
+                      
+                      return f"Release notes for version {version}"
+
+                  if __name__ == "__main__":
+                      notes = extract_version_notes('CHANGELOG.md', sys.argv[1])
+                      print(notes)
+                  EOF
+
+                  NOTES=$(python3 extract_changelog.py "$VERSION")
+
+                  # Échapper les caractères spéciaux pour GitHub Output
+                  NOTES="${NOTES//'%'/'%25'}"
+                  NOTES="${NOTES//$'\n'/'%0A'}"
+                  NOTES="${NOTES//$'\r'/'%0D'}"
+
+                  echo "notes=$NOTES" >> $GITHUB_OUTPUT
+
+    release:
+        name: 🚀 Create Release
+        runs-on: ubuntu-latest
+        needs: [check-version]
+        if: needs.check-version.outputs.version-changed == 'true'
+
+        steps:
+            - name: 📥 Checkout code
+              uses: actions/checkout@v4
+
+            - name: 🦀 Setup Rust
+              uses: actions-rs/toolchain@v1
+              with:
+                  toolchain: stable
+                  override: true
+
+            - name: 📦 Cache dependencies
+              uses: actions/cache@v3
+              with:
+                  path: |
+                      ~/.cargo/registry
+                      ~/.cargo/git
+                      target
+                  key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+
+            - name: 🏗️ Build release
+              run: cargo build --release
+
+            - name: 🧪 Run tests
+              run: cargo test --release
+
+            - name: 📦 Create release archive
+              run: |
+                  mkdir -p release-artifacts
+
+                  # Copier l'exécutable
+                  cp target/release/api_lorem_ipsum release-artifacts/
+
+                  # Copier la documentation
+                  cp README.md CHANGELOG.md LICENSE release-artifacts/
+
+                  # Créer une archive
+                  tar -czf api_lorem_ipsum-${{ needs.check-version.outputs.version }}-x86_64-unknown-linux-gnu.tar.gz -C release-artifacts .
+
+                  # Créer un checksum
+                  sha256sum api_lorem_ipsum-${{ needs.check-version.outputs.version }}-x86_64-unknown-linux-gnu.tar.gz > api_lorem_ipsum-${{ needs.check-version.outputs.version }}-x86_64-unknown-linux-gnu.tar.gz.sha256
+
+            - name: 📝 Generate detailed release notes
+              id: release-notes
+              run: |
+                  VERSION="${{ needs.check-version.outputs.version }}"
+                  BASIC_NOTES="${{ needs.check-version.outputs.release-notes }}"
+
+                  cat << EOF > detailed_notes.md
+                  # 🚀 API Lorem Ipsum v${VERSION}
+
+                  ${BASIC_NOTES}
+
+                  ---
+
+                  ## 📦 Installation
+
+                  ### Depuis les sources
+                  \`\`\`bash
+                  git clone https://github.com/Pierre-brtrd/api_lorem_ipsum.git
+                  cd api_lorem_ipsum
+                  git checkout v${VERSION}
+                  cargo build --release
+                  \`\`\`
+
+                  ### Archive binaire
+                  Téléchargez l'archive ci-dessous et extrayez-la :
+                  \`\`\`bash
+                  tar -xzf api_lorem_ipsum-${VERSION}-x86_64-unknown-linux-gnu.tar.gz
+                  ./api_lorem_ipsum
+                  \`\`\`
+
+                  ## 🔍 Vérification
+
+                  Vérifiez l'intégrité du fichier téléchargé :
+                  \`\`\`bash
+                  sha256sum -c api_lorem_ipsum-${VERSION}-x86_64-unknown-linux-gnu.tar.gz.sha256
+                  \`\`\`
+
+                  ## 📚 Documentation
+
+                  - [README](https://github.com/Pierre-brtrd/api_lorem_ipsum/blob/v${VERSION}/README.md)
+                  - [Guide de Contribution](https://github.com/Pierre-brtrd/api_lorem_ipsum/blob/v${VERSION}/CONTRIBUTING.md)
+                  - [Architecture DDD](https://github.com/Pierre-brtrd/api_lorem_ipsum/blob/v${VERSION}/NEXT_STEPS.md)
+
+                  ## 🐛 Problèmes Connus
+
+                  Consultez les [issues ouvertes](https://github.com/Pierre-brtrd/api_lorem_ipsum/issues) pour les problèmes connus.
+
+                  ---
+
+                  **Version complète du changelog** : [CHANGELOG.md](https://github.com/Pierre-brtrd/api_lorem_ipsum/blob/v${VERSION}/CHANGELOG.md)
+                  EOF
+
+                  echo "detailed-notes<<EOF" >> $GITHUB_OUTPUT
+                  cat detailed_notes.md >> $GITHUB_OUTPUT
+                  echo "EOF" >> $GITHUB_OUTPUT
+
+            - name: 🏷️ Create Git Tag
+              run: |
+                  git config user.name "github-actions[bot]"
+                  git config user.email "github-actions[bot]@users.noreply.github.com"
+                  git tag -a "v${{ needs.check-version.outputs.version }}" -m "Release v${{ needs.check-version.outputs.version }}"
+                  git push origin "v${{ needs.check-version.outputs.version }}"
+
+            - name: 🚀 Create GitHub Release
+              id: create-release
+              uses: actions/create-release@v1
+              env:
+                  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+              with:
+                  tag_name: v${{ needs.check-version.outputs.version }}
+                  release_name: 🚀 API Lorem Ipsum v${{ needs.check-version.outputs.version }}
+                  body: ${{ steps.release-notes.outputs.detailed-notes }}
+                  draft: false
+                  prerelease: ${{ contains(needs.check-version.outputs.version, 'alpha') || contains(needs.check-version.outputs.version, 'beta') || contains(needs.check-version.outputs.version, 'rc') }}
+
+            - name: 📎 Upload Release Assets
+              uses: actions/upload-release-asset@v1
+              env:
+                  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+              with:
+                  upload_url: ${{ steps.create-release.outputs.upload_url }}
+                  asset_path: ./api_lorem_ipsum-${{ needs.check-version.outputs.version }}-x86_64-unknown-linux-gnu.tar.gz
+                  asset_name: api_lorem_ipsum-${{ needs.check-version.outputs.version }}-x86_64-unknown-linux-gnu.tar.gz
+                  asset_content_type: application/gzip
+
+            - name: 📎 Upload Checksum
+              uses: actions/upload-release-asset@v1
+              env:
+                  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+              with:
+                  upload_url: ${{ steps.create-release.outputs.upload_url }}
+                  asset_path: ./api_lorem_ipsum-${{ needs.check-version.outputs.version }}-x86_64-unknown-linux-gnu.tar.gz.sha256
+                  asset_name: api_lorem_ipsum-${{ needs.check-version.outputs.version }}-x86_64-unknown-linux-gnu.tar.gz.sha256
+                  asset_content_type: text/plain
+
+    notify:
+        name: 📢 Notify Release
+        runs-on: ubuntu-latest
+        needs: [check-version, release]
+        if: needs.check-version.outputs.version-changed == 'true'
+
+        steps:
+            - name: 📢 Create Release Announcement Issue
+              uses: actions/github-script@v7
+              with:
+                  script: |
+                      const version = '${{ needs.check-version.outputs.version }}';
+                      const releaseNotes = `${{ needs.check-version.outputs.release-notes }}`;
+
+                      const body = `# 🎉 Nouvelle Release : v${version}
+
+                      Une nouvelle version de l'API Lorem Ipsum vient d'être publiée !
+
+                      ## 📋 Changements
+
+                      ${releaseNotes}
+
+                      ## 🔗 Liens
+
+                      - **Release GitHub** : https://github.com/Pierre-brtrd/api_lorem_ipsum/releases/tag/v${version}
+                      - **Téléchargement** : [Archive binaire](https://github.com/Pierre-brtrd/api_lorem_ipsum/releases/download/v${version}/api_lorem_ipsum-${version}-x86_64-unknown-linux-gnu.tar.gz)
+                      - **Documentation** : [README](https://github.com/Pierre-brtrd/api_lorem_ipsum/blob/v${version}/README.md)
+
+                      ## 📦 Installation
+
+                      \`\`\`bash
+                      # Depuis les sources
+                      git clone https://github.com/Pierre-brtrd/api_lorem_ipsum.git
+                      cd api_lorem_ipsum
+                      git checkout v${version}
+                      cargo build --release
+                      \`\`\`
+
+                      ## 🚀 Mise à jour
+
+                      Si vous utilisez déjà l'API, pensez à mettre à jour vers cette nouvelle version !
+
+                      ---
+
+                      _Cette issue a été créée automatiquement par le workflow de release._`;
+
+                      github.rest.issues.create({
+                        owner: context.repo.owner,
+                        repo: context.repo.repo,
+                        title: `🚀 Release v${version} disponible`,
+                        body: body,
+                        labels: ['release', 'announcement']
+                      });

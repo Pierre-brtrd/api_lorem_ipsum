@@ -6,7 +6,7 @@ Notre stratégie de tests suit une approche pyramidale pour garantir la qualité
 
 ```
       🔺 E2E Tests (Few)
-     🔸🔸 Integration Tests (Some) 
+     🔸🔸 Integration Tests (Some)
    🔹🔹🔹🔹 Unit Tests (Many)
 ```
 
@@ -33,64 +33,72 @@ src/
 ### 🎯 Types de Tests
 
 #### 1. 🔹 Tests Unitaires
-- **Localisation** : `src/*/tests/` et `#[cfg(test)]` modules
-- **Objectif** : Tester chaque composant isolément
-- **Couverture** : Logique métier, validation, transformations
-- **Exécution** : `cargo test --lib`
+
+-   **Localisation** : `src/*/tests/` et `#[cfg(test)]` modules
+-   **Objectif** : Tester chaque composant isolément
+-   **Couverture** : Logique métier, validation, transformations
+-   **Exécution** : `cargo test --lib`
 
 #### 2. 🔸 Tests d'Intégration
-- **Localisation** : `tests/integration.rs`
-- **Objectif** : Tester l'interaction entre modules
-- **Couverture** : API endpoints, flux complets, base de données
-- **Exécution** : `cargo test --test integration`
+
+-   **Localisation** : `tests/integration.rs`
+-   **Objectif** : Tester l'interaction entre modules
+-   **Couverture** : API endpoints, flux complets, base de données
+-   **Exécution** : `cargo test --test integration`
 
 #### 3. ⚡ Tests de Performance
-- **Localisation** : `tests/performance.rs`
-- **Objectif** : Vérifier les performances sous charge
-- **Couverture** : Temps de réponse, throughput, mémoire
-- **Exécution** : `cargo test --test performance -- --ignored`
+
+-   **Localisation** : `tests/performance.rs`
+-   **Objectif** : Vérifier les performances sous charge
+-   **Couverture** : Temps de réponse, throughput, mémoire
+-   **Exécution** : `cargo test --test performance -- --ignored`
 
 ## 🚀 Optimisations CI/CD
 
 ### ⚡ Améliorations apportées
 
 1. **🔄 Actions GitHub mises à jour**
-   - ❌ `actions-rs/toolchain@v1` (déprécié)
-   - ✅ `dtolnay/rust-toolchain@stable` (moderne)
-   - ❌ `actions-rs/audit@v1` (déprécié)
-   - ✅ `cargo audit` (direct)
+
+    - ❌ `actions-rs/toolchain@v1` (déprécié)
+    - ✅ `dtolnay/rust-toolchain@stable` (moderne)
+    - ❌ `actions-rs/audit@v1` (déprécié)
+    - ✅ `cargo audit` (direct)
 
 2. **📊 Coverage optimisé**
-   - ❌ `cargo-tarpaulin` (lent, limité)
-   - ✅ `cargo-llvm-cov` (rapide, précis)
-   - ✅ Support tests unitaires ET d'intégration
-   - ✅ Cache optimisé pour chaque job
+
+    - ❌ `cargo-tarpaulin` (lent, limité)
+    - ✅ `cargo-llvm-cov` (rapide, précis)
+    - ✅ Support tests unitaires ET d'intégration
+    - ✅ Cache optimisé pour chaque job
 
 3. **🔀 Jobs parallèles**
-   ```yaml
-   test:        # Tests unitaires rapides
-   integration: # Tests d'intégration
-   security:    # Audit sécurité
-   coverage:    # Coverage (master seulement)
-   ```
+    ```yaml
+    test: # Tests unitaires rapides
+    integration: # Tests d'intégration
+    security: # Audit sécurité
+    coverage: # Coverage (master seulement)
+    ```
 
 ### 📈 Métriques de Performance
 
 #### ⏱️ Temps d'exécution attendus
-- **Tests unitaires** : < 30s
-- **Tests d'intégration** : < 2min
-- **Tests de performance** : < 5min
-- **Coverage complet** : < 3min
+
+-   **Tests unitaires** : < 30s
+-   **Tests d'intégration** : < 2min
+-   **Tests de performance** : < 5min
+-   **Coverage complet** : < 3min
 
 #### 🎯 Objectifs de qualité
-- **Coverage** : > 80%
-- **Tests unitaires** : > 90% du code métier
-- **Tests d'intégration** : Tous les endpoints
-- **Performance** : P95 < 100ms
+
+-   **Coverage** : > 80%
+-   **Tests unitaires** : > 90% du code métier
+-   **Tests d'intégration** : Tous les endpoints
+-   **Performance** : P95 < 100ms
 
 ## 🧪 Commandes de Test
 
 ### 🏃 Tests rapides (développement)
+
 ```bash
 # Tests unitaires seulement
 cargo test --lib
@@ -100,6 +108,7 @@ cargo llvm-cov --open
 ```
 
 ### 🔍 Tests complets (CI)
+
 ```bash
 # Tous les tests sauf performance
 cargo test
@@ -112,6 +121,7 @@ cargo test --test performance -- --ignored
 ```
 
 ### 📊 Coverage détaillé
+
 ```bash
 # Coverage avec détails par module
 cargo llvm-cov --all-features --workspace --lcov --output-path lcov.info
@@ -125,21 +135,24 @@ cargo llvm-cov --all-features --workspace --html
 ### 📐 Zones prioritaires
 
 1. **🔥 Coverage critique (100%)**
-   - Logique métier (Domain)
-   - Validation des données
-   - Gestion d'erreurs
+
+    - Logique métier (Domain)
+    - Validation des données
+    - Gestion d'erreurs
 
 2. **⚡ Coverage important (90%)**
-   - Use cases (Application)
-   - API endpoints
-   - Transformations de données
+
+    - Use cases (Application)
+    - API endpoints
+    - Transformations de données
 
 3. **🛠️ Coverage standard (70%)**
-   - Infrastructure
-   - Configuration
-   - Utilitaires
+    - Infrastructure
+    - Configuration
+    - Utilitaires
 
 ### 🚫 Exclusions de coverage
+
 ```rust
 // Code généré automatiquement
 #[cfg(not(tarpaulin_include))]
@@ -161,7 +174,7 @@ graph TD
     A --> C[Tests Intégration]
     A --> D[Security Audit]
     A --> E[Coverage]
-    
+
     B --> F[Merge/Deploy]
     C --> F
     D --> F
@@ -171,36 +184,41 @@ graph TD
 ### ⚙️ Configuration avancée
 
 1. **🗄️ Cache intelligent**
-   - Cache séparé par type de test
-   - Invalidation sur changement Cargo.lock
-   - Réutilisation entre jobs
+
+    - Cache séparé par type de test
+    - Invalidation sur changement Cargo.lock
+    - Réutilisation entre jobs
 
 2. **🎯 Exécution conditionnelle**
-   - Coverage : master branch seulement
-   - Performance : release/tags seulement
-   - Integration : toutes les branches
+
+    - Coverage : master branch seulement
+    - Performance : release/tags seulement
+    - Integration : toutes les branches
 
 3. **📤 Artifacts et rapports**
-   - Coverage reports vers Codecov
-   - Performance benchmarks stockés
-   - Logs détaillés pour debugging
+    - Coverage reports vers Codecov
+    - Performance benchmarks stockés
+    - Logs détaillés pour debugging
 
 ## 🚀 Prochaines Étapes
 
 ### 📅 Phase 1 : Fondations (Actuel)
-- ✅ Structure de tests mise en place
-- ✅ CI/CD optimisé
-- ✅ Coverage configuré
+
+-   ✅ Structure de tests mise en place
+-   ✅ CI/CD optimisé
+-   ✅ Coverage configuré
 
 ### 📅 Phase 2 : Implémentation
-- 🔄 Tests unitaires pour chaque module DDD
-- 🔄 Tests d'intégration pour API
-- 🔄 Tests de performance sous charge
+
+-   🔄 Tests unitaires pour chaque module DDD
+-   🔄 Tests d'intégration pour API
+-   🔄 Tests de performance sous charge
 
 ### 📅 Phase 3 : Avancé
-- 📋 Tests E2E avec vraie base de données
-- 📋 Tests de sécurité automatisés
-- 📋 Benchmarks continus
+
+-   📋 Tests E2E avec vraie base de données
+-   📋 Tests de sécurité automatisés
+-   📋 Benchmarks continus
 
 ## 🎉 Avantages de cette approche
 

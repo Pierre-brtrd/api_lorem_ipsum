@@ -1,0 +1,11 @@
+blank_issues_enabled: false
+contact_links:
+    - name: 💬 Discussions GitHub
+      url: https://github.com/Pierre-brtrd/api_lorem_ipsum/discussions
+      about: Pour les discussions générales et les idées
+    - name: 📖 Documentation
+      url: https://github.com/Pierre-brtrd/api_lorem_ipsum/blob/main/README.md
+      about: Consulter la documentation complète
+    - name: 🚀 Guide de Contribution
+      url: https://github.com/Pierre-brtrd/api_lorem_ipsum/blob/main/CONTRIBUTING.md
+      about: Comment contribuer au projet
